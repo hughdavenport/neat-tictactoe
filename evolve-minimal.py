@@ -8,11 +8,15 @@ DEBUG = False
 
 best_net = None
 best_fitness = None
+last_improved = -1
 
-NUMBER_OF_GAMES_TO_RUN = 100
+EVALS_BEFORE_RANDOM = 1000
+EVALS_FOR_RANDOM = 1000
+NUMBER_OF_GAMES_TO_RUN = 50
 
 def isValidMove(board, index):
-    return index >= 0 and index < len(board) and board[index] == 0.5
+    offset = int(len(board) / 2)
+    return index >= 0 and index < offset and board[index] == 0 and board[index + offset] == 0
 
 def isFinished(board):
     return isLine(board, 0, 1, 2) \
@@ -23,32 +27,39 @@ def isFinished(board):
         or isDraw(board)
 
 def isDraw(board):
-    return board.count(0.5) == 0
+    return board.count(1.0) == 9
     
 def isLine(board, i1, i2, i3):
-    if i1 < 0 or i2 < 0 or i3 < 0 or i1 >= len(board) or i2 >= len(board) or i3 >= len(board):
+    offset = int(len(board) / 2)
+    if i1 < 0 or i2 < 0 or i3 < 0 or i1 >= offset or i2 >= offset or i3 >= offset:
         return False
-    if board[i1] == 0.5:
+    if board[i1] == 0 or board[i1 + offset] == 0:
         return False
-    return board[i1] == board[i2] and board[i1] == board[i3]
+    return (board[i1] == board[i2] and board[i1] == board[i3]) or \
+            (board[i1 + offset] == board[i2 + offset] and board[i1 + offset] == board[i3 + offset])
 
 def isLineWithEmptyGap(board, i1, i2, i3, player=True):
-    if i1 < 0 or i2 < 0 or i3 < 0 or i1 >= len(board) or i2 >= len(board) or i3 >= len(board):
+    offset = int(len(board) / 2)
+    if i1 < 0 or i2 < 0 or i3 < 0 or i1 >= offset or i2 >= offset or i3 >= offset:
         return False
+    if not player:
+        i1 += offset
+        i2 += offset
+        i3 += offset
     row = [board[i1], board[i2], board[i3]]
-    return row.count(0.5) == 1 and row.count(0.0 if player else 1.0) == 2
+    return row.count(0.0) == 1 and row.count(1.0) == 2
 
 def isWinner(board, player=True):
     if isLine(board, 0, 1, 2):
-        return board[0] == (0.0 if player else 1.0)
+        return board[0 if player else 9] == 1.0
     if isLine(board, 3, 4, 5):
-        return board[3] == (0.0 if player else 1.0)
+        return board[3 if player else 12] == 1.0
     if isLine(board, 6, 7, 8):
-        return board[6] == (0.0 if player else 1.0)
+        return board[6 if player else 15] == 1.0
     if isLine(board, 0, 4, 8):
-        return board[0] == (0.0 if player else 1.0)
+        return board[0 if player else 9] == 1.0
     if isLine(board, 2, 4, 6):
-        return board[2] == (0.0 if player else 1.0)
+        return board[2 if player else 11] == 1.0
 
 def isAlmostWinner(board, player=True):
     return isLineWithEmptyGap(board, 0, 1, 2, player) \
@@ -62,30 +73,48 @@ def score(board, player=True):
         return 1.0
     elif isWinner(board, not player):
         return -1.0
-    if isAlmostWinner(board, player):
-        return 0.5 # Give some bonus
-    if isDraw(board):
-        return 0.0 # Get some points for a draw
-    return -board.count(0.5) / 9.0 # Penalise empty spaces left
+    if False:
+        if isAlmostWinner(board, player):
+            return 0.5 # Give some bonus
+        if isDraw(board):
+            return 0.0 # Get some points for a draw
+        return -board.count(0.5) / 9.0 # Penalise empty spaces left
+    return 0.0
 
 def printBoard(board):
+    offset = 9
     for y in range(0, 3):
         print("+-+-+-+")
         for x in range(0, 3):
             index = y * 3 + x
-            print("|{}".format(' ' if board[index] == 0.5 else ('X' if board[index] == 0.0 else 'O')), end='')
+            print("|{}".format(' ' if board[index] == 0.0 and board[index + offset] == 0.0 else ('X' if board[index] == 1.0 else 'O')), end='')
         print("|")
     print("+-+-+-+")
 
+import random
+class RandomAgent:
+    def activate(self, board):
+        offset = int(len(board) / 2)
+        choices = [index for index in range(0, offset) if board[index] == 0.0 and board[index + offset] == 0.0]
+        output = [random.random() if index in choices else 0.0 for index in range(0, offset)]
+        return output
+
 def eval_genome(genome, config, human=False):
-    global best_net, best_fitness
+    global best_net, best_fitness, last_improved
+    last_improved += 1
     genome.fitness = 0.0
     net = neat.nn.FeedForwardNetwork.create(genome, config)
-    if best_net is None:
-        print("Using a random opponent")
-        best_net = net
+    if best_net is None or last_improved > EVALS_BEFORE_RANDOM:
+        if best_net is not None:
+            print("Haven't improved after a while, resetting to a random opponent, best so far", best_fitness)
+        else:
+            print("Using a random opponent")
+        best_net = RandomAgent()
+        last_improved = -EVALS_FOR_RANDOM
     for g in range(0, NUMBER_OF_GAMES_TO_RUN): # Run a few games
-        board = [0.5 for i in range(0, 9)]
+        # two 3x3 boards, first is 1 if X has gone, second is if O has gone
+        offset = 9
+        board = [0 for i in range(0, offset)] * 2
         playerFirst = random.random() > 0.5
         steps = []
         opp_steps = []
@@ -94,12 +123,12 @@ def eval_genome(genome, config, human=False):
                 output = net.activate(board)
                 index = sorted(range(len(output)), key=lambda x: output[x])[-1]
                 if not isValidMove(board, index):
-                    genome.fitness -= 0.5 # Penalty for doing wrong move
+                    genome.fitness -= 10.0 / (1 + board.count(1.0)) # Penalty for doing wrong move, less later in the game
                     if DEBUG:
                         print("Bad move from player")
                     break
 
-                board[index] = 0.0
+                board[index] = 1.0
                 steps.append(index)
                 if DEBUG or human:
                     print("Player at {}, {}".format(int(index / 3), int(index % 3)))
@@ -112,26 +141,22 @@ def eval_genome(genome, config, human=False):
                 if human:
                     index = int(input("Enter an index: "))
                 else:
-                    if g < NUMBER_OF_GAMES_TO_RUN / 2 and False:
-                        indices = [i for i, v in enumerate(board) if v == 0.5]
-                        index = random.choice(indices)
-                    else:
-                        for i in range(0, 10): # Let opponent do bad move a few times if need be
-                            output = best_net.activate(board)
-                            index = sorted(range(len(output)), key=lambda x: output[x])[-1]
-                            if not isValidMove(board, index):
-                                index = None
-                                # No penalty for opponent doing the same...
-                                if DEBUG:
-                                    print("Bad move from opponent")
-                                continue
+                    for i in range(0, 10): # Let opponent do bad move a few times if need be
+                        output = best_net.activate(board)
+                        index = sorted(range(len(output)), key=lambda x: output[x])[-1]
+                        if not isValidMove(board, index):
+                            index = None
+                            # No penalty for opponent doing the same...
+                            if DEBUG:
+                                print("Bad move from opponent")
+                            continue
 
                 if index is None:
                     if DEBUG:
                         print("Several bad moves from opponent")
                     break
 
-                board[index] = 1.0
+                board[index + offset] = 1.0
                 steps.append(index)
                 if DEBUG or human:
                     print("Opponent at {}, {}".format(int(index / 3), int(index % 3)))
@@ -141,26 +166,22 @@ def eval_genome(genome, config, human=False):
                 if human:
                     index = int(input("Enter an index: "))
                 else:
-                    if g < NUMBER_OF_GAMES_TO_RUN / 2 and False:
-                        indices = [i for i, v in enumerate(board) if v == 0.5]
-                        index = random.choice(indices)
-                    else:
-                        for i in range(0, 10): # Let opponent do bad move a few times if need be
-                            output = best_net.activate(board)
-                            index = sorted(range(len(output)), key=lambda x: output[x])[-1]
-                            if not isValidMove(board, index):
-                                index = None
-                                # No penalty for opponent doing the same...
-                                if DEBUG:
-                                    print("Bad move from opponent")
-                                continue
+                    for i in range(0, 10): # Let opponent do bad move a few times if need be
+                        output = best_net.activate(board)
+                        index = sorted(range(len(output)), key=lambda x: output[x])[-1]
+                        if not isValidMove(board, index):
+                            index = None
+                            # No penalty for opponent doing the same...
+                            if DEBUG:
+                                print("Bad move from opponent")
+                            continue
 
                 if index is None:
                     if DEBUG:
                         print("Several bad moves from opponent")
                     break
 
-                board[index] = 1.0
+                board[index + offset] = 1.0
                 steps.append(index)
                 if DEBUG or human:
                     print("Opponent at {}, {}".format(int(index / 3), int(index % 3)))
@@ -172,12 +193,12 @@ def eval_genome(genome, config, human=False):
                 output = net.activate(board)
                 index = sorted(range(len(output)), key=lambda x: output[x])[-1]
                 if not isValidMove(board, index):
-                    genome.fitness -= 0.5 # Penalty for doing wrong move
+                    genome.fitness -= 10.0 / (1 + board.count(1.0)) # Penalty for doing wrong move, less later in the game
                     if DEBUG:
                         print("Bad move from player")
                     break
 
-                board[index] = 0.0
+                board[index] = 1.0
                 steps.append(index)
                 if DEBUG or human:
                     print("Player at {}, {}".format(int(index / 3), int(index % 3)))
@@ -220,14 +241,17 @@ def eval_genome(genome, config, human=False):
 #                print("{} took move {}, {}".format("Player" if player else "Opponent", int(step / 3), int(step % 3)))
 #                printBoard(board)
 #                player = not player
+    genome.fitness = genome.fitness / NUMBER_OF_GAMES_TO_RUN
     if DEBUG:
         print("Final fitness = {}".format(genome.fitness))
     if best_fitness is None:
         best_fitness = genome.fitness
-    if genome.fitness > best_fitness:
+    if last_improved >= 0 and genome.fitness > best_fitness and genome.fitness >= -1:
         print("Setting new opponent, fitness = {}, it was {}".format(genome.fitness, best_fitness))
         best_net = net
         best_fitness = genome.fitness
+        last_improved = -1
+
     return genome.fitness
         
 def eval_genomes(genomes, config):
@@ -240,12 +264,17 @@ config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                      'config-feedforward')
 
 config.fitness_threshold = NUMBER_OF_GAMES_TO_RUN * 0.99
+config.fitness_threshold = 0.99999
 
 # Create the population, which is the top-level object for a NEAT run.
 p = neat.Population(config)
+import sys
+if len(sys.argv) >= 2:
+    p = neat.Checkpointer.restore_checkpoint(sys.argv[1])
 
 # Add a stdout reporter to show progress in the terminal.
-p.add_reporter(neat.StdOutReporter(True))
+#p.add_reporter(neat.StdOutReporter(True))
+p.add_reporter(neat.StdOutReporter(False))
 
 checkpoint = neat.Checkpointer()
 p.add_reporter(checkpoint)
