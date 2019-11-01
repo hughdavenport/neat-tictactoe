@@ -3,8 +3,8 @@
 [NEAT]
 fitness_criterion     = max
 # Change fitness thres
-fitness_threshold     = 10.0
-pop_size              = 1000
+fitness_threshold     = 1.0
+pop_size              = 100
 reset_on_extinction   = False
 
 [DefaultGenome]

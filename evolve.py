@@ -1,9 +1,14 @@
 from __future__ import print_function
 import neat
 import pickle       # pip install cloudpickle
+import os
 
 from game import TicTacToe
 import agents
+
+NUMBER_TO_SAMPLE = 1000
+
+debug = False
 
 def pickMove(agent, state):
     output = agent.activate(state)
@@ -11,7 +16,8 @@ def pickMove(agent, state):
 
 def pickAndMakeMove(game, agent):
     state = game.state()
-    game.playMove(pickMove(opponent, state))
+    index = pickMove(agent, state)
+    game.playMove(index)
 
 def simulateGame(player, opponent):
     # Returns fitness delta
@@ -27,15 +33,21 @@ def simulateGame(player, opponent):
                 # Penalise player
                 return -100.0
 
+            if game.isFinished():
+                break
+
             try:
                 pickAndMakeMove(game, opponent)
             except:
-                pickAndMakeMove(game, RandomAgent())
+                pickAndMakeMove(game, agents.RandomAgent())
         else: # Not our turn
             try:
                 pickAndMakeMove(game, opponent)
             except:
-                pickAndMakeMove(game, RandomAgent())
+                pickAndMakeMove(game, agents.RandomAgent())
+
+            if game.isFinished():
+                break
 
             try:
                 pickAndMakeMove(game, opponent)
@@ -54,13 +66,9 @@ def eval_genome(genome, config):
     player = neat.nn.FeedForwardNetwork.create(genome, config)
     opponent = agents.RandomAgent()
 
-    # TODO loop through some number of games
-    #      maybe do markov selection whatevs?
-    #
-    # - In loop, simulateGame
-    # - finally avg the fitness, print out stats?
-
-    genome.fitness += simulateGame(player, opponent)
+    for _ in range(0, NUMBER_TO_SAMPLE):
+        genome.fitness += simulateGame(player, opponent)
+    genome.fitness /= NUMBER_TO_SAMPLE
 
     # TODO also want to track who is our opponent
     #      or do we want to have that done in bunches
@@ -68,6 +76,8 @@ def eval_genome(genome, config):
     #      or multiple?
 
     # TODO think about fitness RE perfect players playing each others
+
+    return genome.fitness
 
 def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
@@ -88,12 +98,17 @@ def run(config_file):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(5))
+    p.add_reporter(neat.Checkpointer(100))
 
     # TODO parallelise 
 
     # Run for up to 300 generations.
-    winner = p.run(eval_genomes, 300)
+    winner = None
+    if debug:
+        winner = p.run(eval_genomes, 300)
+    else:
+        pe = neat.ParallelEvaluator(4, eval_genome)
+        winner = p.run(pe.evaluate)
 
     # TODO visulize, save
 
