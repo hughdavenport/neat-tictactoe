@@ -44,8 +44,11 @@ class TicTacToe:
 
     # Constructors
 
-    def __init__(self):
-        self._turn = bool(random.getrandbits(1))
+    def __init__(self, turn=None):
+        if turn is None:
+            self._turn = bool(random.getrandbits(1))
+        else:
+            self._turn = bool(turn)
         self._player = _CROSS if self._turn else _NAUGHT
         self._board = [0.0] * 18
 

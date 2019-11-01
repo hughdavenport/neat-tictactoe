@@ -2,25 +2,70 @@ from __future__ import print_function
 import neat
 import pickle       # pip install cloudpickle
 
+from game import TicTacToe
+import agents
+
+def pickMove(agent, state):
+    output = agent.activate(state)
+    return sorted(range(len(output)), key=lambda x: output[x])[-1]
+
+def pickAndMakeMove(game, agent):
+    state = game.state()
+    game.playMove(pickMove(opponent, state))
+
+def simulateGame(player, opponent):
+    # Returns fitness delta
+    game = TicTacToe()
+    while not game.isFinished():
+
+        # TODO track stats?
+
+        if game.isOurTurn():
+            try:
+                pickAndMakeMove(game, opponent)
+            except:
+                # Penalise player
+                return -100.0
+
+            try:
+                pickAndMakeMove(game, opponent)
+            except:
+                pickAndMakeMove(game, RandomAgent())
+        else: # Not our turn
+            try:
+                pickAndMakeMove(game, opponent)
+            except:
+                pickAndMakeMove(game, RandomAgent())
+
+            try:
+                pickAndMakeMove(game, opponent)
+            except:
+                # Penalise player
+                return -100.0
+
+    # Game is finished (or illegal move made)
+
+    # TODO debug prints, or stats
+
+    return game.score()
+
 def eval_genome(genome, config):
     genome.fitness = 0.0
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    player = neat.nn.FeedForwardNetwork.create(genome, config)
+    opponent = agents.RandomAgent()
 
     # TODO loop through some number of games
     #      maybe do markov selection whatevs?
     #
-    # - In loop
-    #  - while game isn't finished
-    #   - if it is our turn
-    #    - activate net and make a choice
-    #     * NB, if choice is illegal, penalise heavily?
-    #    - get current opponent to do the same
-    #   - otherwise do the opposite order
-    #  - adjust fitness
+    # - In loop, simulateGame
     # - finally avg the fitness, print out stats?
+
+    genome.fitness += simulateGame(player, opponent)
 
     # TODO also want to track who is our opponent
     #      or do we want to have that done in bunches
+    #      i.e. we should pick best/worst/random ai to be opponent?
+    #      or multiple?
 
     # TODO think about fitness RE perfect players playing each others
 
