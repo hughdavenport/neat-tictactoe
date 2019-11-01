@@ -137,3 +137,13 @@ class TicTacToe:
                 ret += " " + char + " "
             ret +=     "\n   |   |   "
         return ret
+
+
+
+    # TODO make subclasses for diff agents
+    #       - random
+    #       - perfect
+    #       - losing
+
+    # TODO also add more private functions
+    #       - list of almost wins (kinda needed for losing agent)
