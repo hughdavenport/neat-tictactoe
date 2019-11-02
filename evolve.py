@@ -28,32 +28,32 @@ def simulateGame(player, opponent):
 
         if game.isOurTurn():
             try:
-                pickAndMakeMove(game, opponent)
-            except:
+                pickAndMakeMove(game, player)
+            except IndexError:
                 # Penalise player
-                return -100.0
+                return -NUMBER_TO_SAMPLE
 
             if game.isFinished():
                 break
 
             try:
                 pickAndMakeMove(game, opponent)
-            except:
+            except IndexError:
                 pickAndMakeMove(game, agents.RandomAgent())
         else: # Not our turn
             try:
                 pickAndMakeMove(game, opponent)
-            except:
+            except IndexError:
                 pickAndMakeMove(game, agents.RandomAgent())
 
             if game.isFinished():
                 break
 
             try:
-                pickAndMakeMove(game, opponent)
-            except:
+                pickAndMakeMove(game, player)
+            except IndexError:
                 # Penalise player
-                return -100.0
+                return -NUMBER_TO_SAMPLE
 
     # Game is finished (or illegal move made)
 
@@ -74,6 +74,9 @@ def eval_genome(genome, config):
     #      or do we want to have that done in bunches
     #      i.e. we should pick best/worst/random ai to be opponent?
     #      or multiple?
+
+    # I would be keen to pick the best/worst after every X generation(s)
+    # would probably need to do this in the neat framework
 
     # TODO think about fitness RE perfect players playing each others
 
