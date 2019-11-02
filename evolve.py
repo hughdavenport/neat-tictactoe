@@ -5,10 +5,13 @@ import os
 
 from game import TicTacToe
 import agents
+import trackers
 
 NUMBER_TO_SAMPLE = 1000
 
 debug = False
+
+opponent_tracker = trackers.OpponentTracker()
 
 def pickMove(agent, state):
     output = agent.activate(state)
@@ -64,7 +67,7 @@ def simulateGame(player, opponent):
 def eval_genome(genome, config):
     genome.fitness = 0.0
     player = neat.nn.FeedForwardNetwork.create(genome, config)
-    opponent = agents.RandomAgent()
+    opponent = opponent_tracker.current_opponent
 
     for _ in range(0, NUMBER_TO_SAMPLE):
         genome.fitness += simulateGame(player, opponent)
@@ -96,14 +99,15 @@ def run(config_file):
     p = neat.Population(config)
 
     # TODO restart from checkpoint
+    # neat.Checkpointer.restore_checkpoint(filename)
 
     # Add a stdout reporter to show progress in the terminal.
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(100))
+    p.add_reporter(neat.Checkpointer(generation_interval=100, time_interval_seconds=None))
 
-    # TODO parallelise 
+    p.add_reporter(opponent_tracker)
 
     # Run for up to 300 generations.
     winner = None
