@@ -102,7 +102,7 @@ def run(config_file):
     # neat.Checkpointer.restore_checkpoint(filename)
 
     # Add a stdout reporter to show progress in the terminal.
-    p.add_reporter(neat.StdOutReporter(True))
+    p.add_reporter(neat.StdOutReporter(False))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
     p.add_reporter(neat.Checkpointer(generation_interval=100, time_interval_seconds=None))
