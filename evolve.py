@@ -8,6 +8,7 @@ import agents
 import trackers
 
 NUMBER_TO_SAMPLE = 1000
+NUMBER_ILLEGAL_MOVES_ALLOWED = 10
 
 debug = False
 
@@ -25,6 +26,7 @@ def pickAndMakeMove(game, agent):
 def simulateGame(player, opponent):
     # Returns fitness delta
     game = TicTacToe()
+    illegal_moves = 0
     while not game.isFinished():
 
         # TODO track stats?
@@ -33,8 +35,12 @@ def simulateGame(player, opponent):
             try:
                 pickAndMakeMove(game, player)
             except IndexError:
-                # Penalise player
-                return -NUMBER_TO_SAMPLE
+                illegal_moves += 1
+                if illegal_moves >= NUMBER_ILLEGAL_MOVES_ALLOWED:
+                    # Penalise player
+                    return -NUMBER_TO_SAMPLE
+                else:
+                    continue
 
             if game.isFinished():
                 break
@@ -55,8 +61,12 @@ def simulateGame(player, opponent):
             try:
                 pickAndMakeMove(game, player)
             except IndexError:
-                # Penalise player
-                return -NUMBER_TO_SAMPLE
+                illegal_moves += 1
+                if illegal_moves >= NUMBER_ILLEGAL_MOVES_ALLOWED:
+                    # Penalise player
+                    return -NUMBER_TO_SAMPLE
+                else:
+                    continue
 
     # Game is finished (or illegal move made)
 
